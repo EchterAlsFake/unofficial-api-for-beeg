@@ -6,7 +6,7 @@ from base_api.modules.config import RuntimeConfig
 config = RuntimeConfig()
 config.videos_concurrency = 1
 config.pages_concurrency = 1
-core = BaseCore(config=config)
+core = BaseCore(configuration=config)
 
 
 
