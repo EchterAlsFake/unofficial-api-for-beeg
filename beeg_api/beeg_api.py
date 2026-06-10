@@ -14,21 +14,26 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+import json
 import os
 import logging
 import threading
 
-from typing import Optional
+from curl_cffi import Response
 from functools import cached_property
 from base_api.base import BaseCore, setup_logger
+from base_api.modules.type_hints import DownloadReport
+from base_api.modules.errors import InvalidProxy, BotProtectionDetected, UnknownError, NetworkingError
 
 try:
     from modules.consts import *
     from modules.errors import *
+    from modules.type_hints import *
 
 except (ModuleNotFoundError, ImportError):
     from .modules.consts import *
     from .modules.errors import *
+    from .modules.type_hints import *
 
 try:
     import lxml
@@ -38,8 +43,31 @@ except (ModuleNotFoundError, ImportError):
     parser = "html.parser"
 
 
+async def get_html_content(core: BaseCore, url: str) -> str | None | dict:
+    # What should I do here?
+    try:
+        content = await core.fetch(url)
+        if isinstance(content, str):
+            return content
+
+        if isinstance(content, Response):
+            if content.status_code == 404:
+                raise NotFound(f"Server returned 404 for: {url}")
+
+    except NetworkingError as e:
+        raise NetworkError(str(e)) from e
+
+    except InvalidProxy as e:
+        raise ProxyError(str(e)) from e
+
+    except BotProtectionDetected as e:
+        raise BotDetection(str(e)) from e
+
+    except UnknownError as e:
+        raise UnknownNetworkError(str(e)) from e
+
 class Video:
-    def __init__(self, url: str, core: BaseCore, json_data: dict = None):
+    def __init__(self, url: str, core: BaseCore, json_data: dict | None = None):
         self.url = url
         self.core = core
         self.json_data = json_data
@@ -52,10 +80,13 @@ class Video:
         return self
 
     async def get_json_content(self) -> dict:
-        response = await self.core.fetch(f"https://store.externulls.com/facts/file/{self.key}", get_response=True)
-        return response.json()  # This is the holy grail
+        response = await get_html_content(url=f"https://store.externulls.com/facts/file/{self.key}", core=self.core)
+        assert isinstance(response, str)
+        return json.loads(response)
 
-    def enable_logging(self, log_file: str = None, level=None, log_ip: str = None, log_port: int = None):
+    def enable_logging(self, log_file: str | None = None, level: int | None = None, log_ip: str | None = None, log_port: int | None = None):
+        if not level:
+            level = logging.DEBUG
         self.logger = setup_logger(name="BEEG API - [Video]", log_file=log_file, level=level, http_ip=log_ip,
                                    http_port=log_port)
 
@@ -88,11 +119,11 @@ class Video:
         segments = await self.core.get_segments(quality=quality, m3u8_url_master=self.m3u8_base_url)
         return segments
 
-    async def download(self, quality, path="./", callback=None, no_title=False, remux: bool = False,
-                 callback_remux=None, start_segment: int = 0, stop_event: Optional[threading.Event] = None,
-                 segment_state_path: Optional[str] = None, segment_dir: Optional[str] = None,
+    async def download(self, quality, path="./", callback: callback_hint = None, no_title=False, remux: bool = False,
+                 callback_remux: callback_hint = None, start_segment: int = 0, stop_event: threading.Event | None = None,
+                 segment_state_path: str | None = None, segment_dir: str | None = None,
                  return_report: bool = False, cleanup_on_stop: bool = True, keep_segment_dir: bool = False
-                 ) -> bool:
+                 ) -> bool | DownloadReport:
         """
         :param callback:
         :param quality:
@@ -120,8 +151,8 @@ class Video:
 
 
 class Client:
-    def __init__(self, core: BaseCore = None):
-        self.core = core or BaseCore()
+    def __init__(self, core: BaseCore = BaseCore()):
+        self.core = core
         self.core.initialize_session()
 
     async def get_video(self, url: str) -> Video:
