@@ -1,4 +1,3 @@
 from typing import Callable
 
-
-type callback_type = Callable[[int, int], None] | None
+type callback_hint = Callable[[int, int], None] | None
