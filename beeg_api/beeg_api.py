@@ -14,33 +14,18 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-import json
 import os
+import asyncio
+import json
 import logging
-import threading
+from dataclasses import dataclass
 
 from curl_cffi import Response
 from functools import cached_property
-from base_api.base import BaseCore, setup_logger
 from base_api.modules.type_hints import DownloadReport
-from base_api.modules.errors import InvalidProxy, BotProtectionDetected, UnknownError, NetworkingError
-
-try:
-    from modules.consts import *
-    from modules.errors import *
-    from modules.type_hints import *
-
-except (ModuleNotFoundError, ImportError):
-    from .modules.consts import *
-    from .modules.errors import *
-    from .modules.type_hints import *
-
-try:
-    import lxml
-    parser = "lxml"
-
-except (ModuleNotFoundError, ImportError):
-    parser = "html.parser"
+from base_api import BaseCore, setup_logger, DownloadConfigHLS
+from base_api.modules.errors import InvalidProxy, BotProtectionDetected, UnknownError, NetworkRequestError
+from beeg_api.modules.errors import NetworkError, NotFound, UnknownNetworkError, BotDetection, ProxyError, DownloadFailed
 
 
 async def get_html_content(core: BaseCore, url: str) -> str | None | dict:
@@ -54,7 +39,7 @@ async def get_html_content(core: BaseCore, url: str) -> str | None | dict:
             if content.status_code == 404:
                 raise NotFound(f"Server returned 404 for: {url}")
 
-    except NetworkingError as e:
+    except NetworkRequestError as e:
         raise NetworkError(str(e)) from e
 
     except InvalidProxy as e:
@@ -66,23 +51,95 @@ async def get_html_content(core: BaseCore, url: str) -> str | None | dict:
     except UnknownError as e:
         raise UnknownNetworkError(str(e)) from e
 
+
+@dataclass(slots=True)
+class VideoMetadata:
+    title: str
+    key: str
+    video_id: str
+    duration: int
+    m3u8_base_url: str
+
+
 class Video:
+    __slots__ = ("metadata", "core")
+    def __init__(self, metadata: VideoMetadata, core: BaseCore):
+        self.metadata = metadata
+        self.core = core
+
+
+    @property
+    def title(self) -> str:
+        return self.metadata.title
+
+    @property
+    def key(self) -> str:
+        return self.metadata.key
+
+    @property
+    def video_id(self) -> str:
+        return self.metadata.video_id
+
+    @property
+    def duration(self) -> int:
+        return self.metadata.duration
+
+    @property
+    def m3u8_base_url(self) -> str:
+        return self.metadata.m3u8_base_url
+
+    async def download(self, configuration: DownloadConfigHLS) -> bool | DownloadReport:
+        """
+        :param configuration:
+        :return:
+        """
+        if not configuration.no_title:
+            configuration.path = os.path.join(configuration.path, f"{self.title}.mp4")
+
+        configuration.m3u8_base_url = self.m3u8_base_url
+
+        try:
+            return await self.core.download(configuration)
+
+        except Exception as e:
+            raise DownloadFailed(str(e))
+
+
+class VideoBuilder:
     def __init__(self, url: str, core: BaseCore, json_data: dict | None = None):
         self.url = url
         self.core = core
         self.json_data = json_data
         self.logger = setup_logger(name="BEEG API - [Video]", log_file=None, level=logging.ERROR)
 
+    def _from_html(self):
+        meta = VideoMetadata(
+            title=self.title,
+            key=self.key,
+            video_id=self.video_id,
+            duration=self.duration,
+            m3u8_base_url=self.m3u8_base_url,
+
+        )
+
+        return Video(meta, self.core)
+
+
+    async def clean(self):
+        self.json_data = None
+        self.url = None
+        self.core = None
+        self.logger = None
+
     async def init(self):
         if not self.json_data:
-            self.json_data = await self.get_json_content()
+            self.json_data = await get_html_content(url=f"https://store.externulls.com/facts/file/{self.key}",
+                                                    core=self.core)
 
-        return self
+            assert isinstance(self.json_data, str)
+            self.json_data = json.loads(self.json_data)
 
-    async def get_json_content(self) -> dict:
-        response = await get_html_content(url=f"https://store.externulls.com/facts/file/{self.key}", core=self.core)
-        assert isinstance(response, str)
-        return json.loads(response)
+        return await asyncio.to_thread(self._from_html)
 
     def enable_logging(self, log_file: str | None = None, level: int | None = None, log_ip: str | None = None, log_port: int | None = None):
         if not level:
@@ -111,44 +168,6 @@ class Video:
         url = self.json_data.get("file").get("hls_resources").get("fl_cdn_multi")
         return f"https://video.externulls.com/{url}"
 
-    async def get_segments(self, quality) -> list:
-        """
-        :param quality: (str, Quality) The video quality
-        :return: (list) A list of segments (the .ts files)
-        """
-        segments = await self.core.get_segments(quality=quality, m3u8_url_master=self.m3u8_base_url)
-        return segments
-
-    async def download(self, quality, path="./", callback: callback_hint = None, no_title=False, remux: bool = False,
-                 callback_remux: callback_hint = None, start_segment: int = 0, stop_event: threading.Event | None = None,
-                 segment_state_path: str | None = None, segment_dir: str | None = None,
-                 return_report: bool = False, cleanup_on_stop: bool = True, keep_segment_dir: bool = False
-                 ) -> bool | DownloadReport:
-        """
-        :param callback:
-        :param quality:
-        :param path:
-        :param no_title:
-        :param remux:
-        :param callback_remux:
-        :param start_segment:
-        :param stop_event:
-        :param segment_state_path:
-        :param segment_dir:
-        :param return_report:
-        :param cleanup_on_stop:
-        :param keep_segment_dir:
-        :return:
-        """
-        if not no_title:
-            path = os.path.join(path, f"{self.title}.mp4")
-
-        return await self.core.download(video=self, quality=quality, path=path, callback=callback, remux=remux,
-                                  callback_remux=callback_remux, start_segment=start_segment, stop_event=stop_event,
-                                  segment_state_path=segment_state_path, segment_dir=segment_dir,
-                                  return_report=return_report,
-                                  cleanup_on_stop=cleanup_on_stop, keep_segment_dir=keep_segment_dir)
-
 
 class Client:
     def __init__(self, core: BaseCore = BaseCore()):
@@ -156,5 +175,5 @@ class Client:
         self.core.initialize_session()
 
     async def get_video(self, url: str) -> Video:
-        return await Video(url, core=self.core).init()
+        return await VideoBuilder(url, core=self.core).init()
 

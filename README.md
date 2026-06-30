@@ -49,7 +49,7 @@ This API has been tested and confirmed working on:
 
 ```python
 import asyncio
-from beeg_api import Client
+from beeg_api import Client, DownloadConfigHLS
 # Initialize a Client object
 
 async def do_something():    
@@ -63,7 +63,12 @@ async def do_something():
     print(video_object.likes)
     # Download the video
     
-    await video_object.download(downloader="threaded", quality="best", path="your_output_path + filename")
+    config = DownloadConfigHLS(
+        quality="best", # Half, Worst, 144p, 240p etc...
+        path="<output_path>" # And other options... please look at the docs
+    )
+    
+    await video_object.download(config)
 
 asyncio.run(do_something())    
 # SEE DOCUMENTATION FOR MORE
