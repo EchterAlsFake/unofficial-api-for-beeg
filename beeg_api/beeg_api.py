@@ -112,6 +112,12 @@ class VideoBuilder:
         self.json_data = json_data
         self.logger = setup_logger(name="BEEG API - [Video]", log_file=None, level=logging.ERROR)
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.clean()
+
     def _from_html(self):
         meta = VideoMetadata(
             title=self.title,
