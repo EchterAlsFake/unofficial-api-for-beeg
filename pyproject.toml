@@ -3,7 +3,7 @@ requires = ["uv_build>=0.9.30,<0.10.0"]
 build-backend = "uv_build"
 
 [project]
-name = "beeg_api"
+name = "unofficial-api-for-beeg"
 version = "1.4.1"
 description = "A Python API for the Porn Site beeg.com"
 requires-python = ">=3.12"
@@ -13,19 +13,21 @@ authors = [
     { name = "Johannes Habel", email = "EchterAlsFake@proton.me" }
 ]
 dependencies = [
-    "eaf_base_api",
-    "m3u8"
+    "eaf-base-api",
+    "m3u8",
 ]
 classifiers = [
     "Programming Language :: Python",
 ]
 
 [project.urls]
-Homepage = "https://github.com/EchterAlsFake/beeg_api"
+Homepage = "https://github.com/EchterAlsFake/unofficial-api-for-beeg"
 
 [project.optional-dependencies]
 av = ["av; python_version >= '3.10'"]
-full = ["lxml"] # H2 for HTTP 2.0 support, LXML for faster parsing speed, though optional :)
 
 [tool.uv.build-backend]
 module-root = ""
+
+[tool.uv.sources]
+eaf-base-api = { path = "../eaf_base_api", editable = true }
