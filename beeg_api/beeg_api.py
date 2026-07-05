@@ -121,7 +121,7 @@ class Client:
         self.core = core
         self.core.initialize_session()
 
-    async def get_video(self, url: str):
+    async def get_video(self, url: str, load_api: bool = True):
         video = Video(url=url, core=self.core)
-        return await video.load(api=True)
+        return await video.load(api=load_api)
 
