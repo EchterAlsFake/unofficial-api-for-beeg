@@ -17,13 +17,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 import json
 import asyncio
-import logging
 from logging import Logger
 from dataclasses import dataclass
 
 from curl_cffi import Response
 from base_api.modules.type_hints import DownloadReport
-from base_api import BaseCore, setup_logger, DownloadConfigHLS, BaseMedia
+from base_api import BaseCore, DownloadConfigHLS, BaseMedia
 from base_api.modules.errors import InvalidProxy, BotProtectionDetected, UnknownError, NetworkRequestError
 from beeg_api.modules.errors import NetworkError, NotFound, UnknownNetworkError, BotDetection, ProxyError, DownloadFailed
 
@@ -68,13 +67,6 @@ class Video(BaseMedia):
     m3u8_base_url: str | None = None
     key: str | None = None
 
-    def enable_logging(self, log_file: str | None = None, level: int | None = None, log_ip: str | None = None, log_port: int | None = None):
-        if not level:
-            level = logging.DEBUG
-        self.logger = setup_logger(name="BEEG API - [Video]", log_file=log_file, level=level, http_ip=log_ip,
-                                   http_port=log_port)
-
-
     async def _perform_load(self, api: bool, html: bool, anything_else: bool):
         # I know this seems as if this doesn't make sense, but it does, trust the process!
         await asyncio.gather(self._fetch_api())
@@ -104,13 +96,14 @@ class Video(BaseMedia):
         :param configuration:
         :return:
         """
-        if not configuration.no_title:
-            configuration.path = os.path.join(configuration.path, f"{self.title}.mp4")
+        config = configuration
+        if not config.no_title:
+            config.path = os.path.join(config.path, f"{self.title}.mp4")
 
-        configuration.m3u8_base_url = self.m3u8_base_url
+        config.m3u8_base_url = self.m3u8_base_url
 
         try:
-            return await self.core.download(configuration)
+            return await self.core.download(configuration=config)
 
         except Exception as e:
             raise DownloadFailed(str(e))

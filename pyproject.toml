@@ -4,27 +4,51 @@ build-backend = "uv_build"
 
 [project]
 name = "unofficial-api-for-beeg"
-version = "1.4.1"
-description = "A Python API for the Porn Site beeg.com"
+version = "1.5"
+description = "An asynchronous Python API wrapper and scraper for beeg.com"
 requires-python = ">=3.12"
 license = "LGPL-3.0-only"
 license-files = ["LICENSE"]
 authors = [
     { name = "Johannes Habel", email = "EchterAlsFake@proton.me" }
 ]
+
+keywords = [
+    "api",
+    "scraper",
+    "async",
+    "asyncio",
+    "video-downloader",
+    "selectolax",
+    "curl-cffi",
+    "beeg"
+]
+
 dependencies = [
     "eaf-base-api",
     "m3u8",
 ]
+
 classifiers = [
-    "Programming Language :: Python",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Multimedia :: Video"
 ]
 
 [project.urls]
 Homepage = "https://github.com/EchterAlsFake/unofficial-api-for-beeg"
+Repository = "https://github.com/EchterAlsFake/unofficial-api-for-beeg"
+"Bug Tracker" = "https://github.com/EchterAlsFake/unofficial-api-for-beeg/issues"
 
 [project.optional-dependencies]
-av = ["av; python_version >= '3.10'"]
+av = ["av"]
 
 [tool.uv.build-backend]
+module-name = "beeg_api"
 module-root = ""
