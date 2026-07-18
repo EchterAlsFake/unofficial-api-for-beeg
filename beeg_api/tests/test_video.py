@@ -20,7 +20,7 @@ async def test_all():
     assert isinstance(video.key, str) and len(video.key) > 0
     assert isinstance(video.duration, int)
 
-    config = DownloadConfigHLS(quality="best", return_report=True)
+    config = DownloadConfigHLS(quality="worst", return_report=True)
     stuff = await video.download(config)
 
     assert stuff.status == "completed"

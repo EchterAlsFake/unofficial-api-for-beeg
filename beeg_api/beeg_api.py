@@ -1,26 +1,12 @@
-"""
-Copyright (C) 2025-2026 Johannes Habel
+from __future__ import annotations
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
-"""
+import copy
 import os
 import json
 import asyncio
-from logging import Logger
-from dataclasses import dataclass
 
 from curl_cffi import Response
+from dataclasses import dataclass
 from base_api.modules.type_hints import DownloadReport
 from base_api import BaseCore, DownloadConfigHLS, BaseMedia
 from base_api.modules.errors import InvalidProxy, BotProtectionDetected, UnknownError, NetworkRequestError
@@ -60,7 +46,6 @@ async def get_html_content(core: BaseCore, url: str) -> str | None | dict:
 class Video(BaseMedia):
     url: str
     core: BaseCore
-    logger: None | Logger = None
     title: str | None = None
     video_id: str | None = None
     duration: int | None = None
@@ -96,11 +81,10 @@ class Video(BaseMedia):
         :param configuration:
         :return:
         """
-        config = configuration
+        config = copy.deepcopy(configuration)
+        config.m3u8_base_url = self.m3u8_base_url
         if not config.no_title:
             config.path = os.path.join(config.path, f"{self.title}.mp4")
-
-        config.m3u8_base_url = self.m3u8_base_url
 
         try:
             return await self.core.download(configuration=config)
