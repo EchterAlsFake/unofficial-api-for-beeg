@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import copy
 import logging
-import os
 import json
 
 import argparse
 
-from base_api.modules.logger import configure_app_logging
+from beeg_api.modules import errors as provider_errors
+from base_api.modules.provider import fetch_content, download_errors, download_hls
+from base_api.modules.logger import configure_app_logging, get_logger
 import asyncio
 
 from dataclasses import dataclass
@@ -15,51 +15,15 @@ from typing import ClassVar
 from base_api.modules.type_hints import DownloadReport
 from base_api import BaseCore, DownloadConfigHLS, BaseMedia, media_field
 from base_api.modules.static_functions import str_to_bool
-from base_api.modules.errors import (
-    DownloadCancelled,
-    BotProtectionDetected,
-    HTTPStatusError,
-    InvalidProxy,
-    NetworkRequestError,
-    RequestRetriesExhausted,
-    UnknownError,
-)
 from beeg_api.modules.errors import NetworkError, NotFound, UnknownNetworkError, BotDetection, ProxyError, DownloadFailed
 
 
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
+logger = get_logger(__name__)
 
 
-async def get_html_content(core: BaseCore, url: str) -> str:
-    try:
-        return await core.fetch_text(url)
-
-    except HTTPStatusError as e:
-        logger.exception("Request failed for %s: %s", url, e)
-        if e.status_code == 404:
-            raise NotFound(f"Server returned 404 for: {url}") from e
-        raise NetworkError(f"Request failed for {url}: {e}") from e
-
-    except (NetworkRequestError, RequestRetriesExhausted) as e:
-        logger.exception("Request failed for %s: %s", url, e)
-        raise NetworkError(f"Request failed for {url}: {e}") from e
-
-    except InvalidProxy as e:
-        logger.exception("Request failed for %s: %s", url, e)
-        raise ProxyError(f"Request failed for {url}: {e}") from e
-
-    except BotProtectionDetected as e:
-        logger.exception("Request failed for %s: %s", url, e)
-        raise BotDetection(f"Request failed for {url}: {e}") from e
-
-    except UnknownError as e:
-        logger.exception("Request failed for %s: %s", url, e)
-        raise UnknownNetworkError(f"Request failed for {url}: {e}") from e
-
-    except Exception:
-        logger.exception("Failed to fetch or decode response for %s", url)
-        raise
+async def get_html_content(core: BaseCore, url: str, *, owner=None) -> str:
+    return await fetch_content(core, url, logger=logger, owner=owner,
+                               error_types=provider_errors)
 
 
 @dataclass(slots=True, kw_only=True)
@@ -83,7 +47,7 @@ class Video(BaseMedia):
         key = self.url.split("/")[-1].strip("-0")
 
         json_data = await get_html_content(url=f"https://store.externulls.com/facts/file/{key}",
-                                                core=self.core)
+                                                core=self.core, owner=self)
         json_data = json.loads(json_data)
         # Usually I'd offload to a thread here, but for 50kb of json we don't need the 5 microseconds lol
 
@@ -98,24 +62,9 @@ class Video(BaseMedia):
             "key": key,
         }
 
+    @download_errors(DownloadFailed)
     async def download(self, configuration: DownloadConfigHLS) -> bool | DownloadReport:
-        """
-        :param configuration:
-        :return:
-        """
-        try:
-            await self.load_fields("m3u8_base_url", "title")
-            config = copy.deepcopy(configuration)
-            config.m3u8_base_url = self.m3u8_base_url
-            if not config.no_title:
-                config.path = os.path.join(config.path, f"{self.title}.mp4")
-
-            return await self.core.download(configuration=config)
-        except DownloadCancelled:
-            raise
-        except Exception as e:
-            logger.exception("Download failed for %s: %s", self.url, e)
-            raise DownloadFailed(f"Download failed for {self.url}: {e}") from e
+        return await download_hls(self, configuration)
 
 
 class Client:
