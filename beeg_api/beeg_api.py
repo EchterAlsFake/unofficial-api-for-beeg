@@ -53,12 +53,16 @@ class Video(BaseMedia):
 
         file_data = json_data.get("file")
         record = file_data.get("data")[0]
-        hls_url = file_data.get("hls_resources").get("fl_cdn_multi")
+        play_path = await get_html_content(
+            url=f"https://store.externulls.com/video/play_url/{key}",
+            core=self.core,
+            owner=self,
+        )
         return {
             "title": record.get("cd_value"),
             "video_id": record.get("id"),
             "duration": file_data.get("fl_duration"),
-            "m3u8_base_url": f"https://video.externulls.com/{hls_url}",
+            "m3u8_base_url": f"https://video.beeg.com/{play_path.strip().lstrip('/')}",
             "key": key,
         }
 
