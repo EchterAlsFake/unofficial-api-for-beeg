@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import json
+import re
+from urllib.parse import urlsplit
 
 import argparse
 
@@ -44,7 +46,10 @@ class Video(BaseMedia):
         :return:
         """
 
-        key = self.url.split("/")[-1].strip("-0")
+        match = re.fullmatch(r"/(?:video/)?-?(\d+)/?", urlsplit(self.url).path)
+        if not match:
+            raise ValueError("A Beeg video URL with a numeric ID is required")
+        key = match.group(1).lstrip("0") or "0"
 
         json_data = await get_html_content(url=f"https://store.externulls.com/facts/file/{key}",
                                                 core=self.core, owner=self)
