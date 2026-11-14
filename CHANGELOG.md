@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.5 - 2026-11-14
+
+- Preserve typed owner and person tags separately from the existing flattened author/tags fields.
+
 ## 1.7.4 — 2026-10-27
 
 - Accept video IDs, links without a scheme, and video links copied from tag pages without losing the video key.

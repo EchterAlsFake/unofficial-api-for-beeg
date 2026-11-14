@@ -80,6 +80,8 @@ class Video(BaseMedia):
     tags: list[str] | None = media_field("api")
     thumbnail: str | None = media_field("api")
     author: str | None = media_field("api")
+    owners: list[str] | None = media_field("api")
+    people: list[str] | None = media_field("api")
     publish_date: str | None = media_field("api")
 
     loader_methods: ClassVar[dict[str, str]] = {"api": "_load_api"}
@@ -122,6 +124,7 @@ class Video(BaseMedia):
         tags_data = json_data.get("tags")
         tags: list[str] | None = None
         author: str | None = None
+        owners, people = [], []
         if isinstance(tags_data, list):
             tags_list = []
             for t in tags_data:
@@ -131,6 +134,10 @@ class Video(BaseMedia):
                         clean = re.sub(r"[{}]", "", name).strip()
                         if clean:
                             tags_list.append(clean)
+                            if t.get("is_owner"):
+                                owners.append(clean)
+                            if t.get("is_person"):
+                                people.append(clean)
                         if t.get("is_owner") and not author:
                             author = clean
                         elif t.get("is_person") and not author:
@@ -157,6 +164,8 @@ class Video(BaseMedia):
             "tags": tags,
             "thumbnail": thumbnail,
             "author": author,
+            "owners": owners,
+            "people": people,
             "publish_date": publish_date,
         }
 
