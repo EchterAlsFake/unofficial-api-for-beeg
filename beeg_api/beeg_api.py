@@ -14,7 +14,10 @@ from base_api.modules.logger import configure_app_logging, get_logger
 import asyncio
 
 from dataclasses import dataclass
+from collections.abc import Mapping
+from http.cookiejar import CookieJar
 from typing import ClassVar
+from beeg_api.account import Account, _load_browser_cookies
 from base_api.modules.type_hints import DownloadReport
 from base_api import BaseCore, DownloadConfigHLS, BaseMedia, media_field
 from base_api.modules.static_functions import str_to_bool
@@ -180,6 +183,19 @@ class Client:
             core = BaseCore()
         self.core = core
         self.core.initialize_session()
+        self.account: Account | None = None
+
+    async def login(self, cookies: CookieJar | Mapping[str, str]) -> Account:
+        """Verify an existing Beeg session and attach its account to the client."""
+        account = Account(self.core, cookies)
+        await account._refresh()
+        self.account = account
+        return account
+
+    async def login_from_browser(self, browser: str | None = None) -> Account:
+        """Import Beeg cookies from a supported browser and verify the session."""
+        cookies = await asyncio.to_thread(_load_browser_cookies, browser)
+        return await self.login(cookies)
 
     async def get_video(self, url: str, load_api: bool = True):
         video = Video(url=url, core=self.core)

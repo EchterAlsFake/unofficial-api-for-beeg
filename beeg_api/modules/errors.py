@@ -5,7 +5,13 @@ from base_api.modules.errors import (
     ProxyError,
     UnknownNetworkError,
     DownloadFailed,
+    AccessDeniedError,
 )
+
+
+class AuthenticationError(AccessDeniedError):
+    """A Beeg account session is missing, invalid, expired, or denied."""
+
 
 __all__ = [
     "NotFound",
@@ -14,4 +20,5 @@ __all__ = [
     "ProxyError",
     "UnknownNetworkError",
     "DownloadFailed",
+    "AuthenticationError",
 ]

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.6 - 2026-11-26
+
+- Sign in with a Beeg browser session to read saved, liked, and Watch Later videos, the Following feed, and followed creators.
+- Use `eaf-base-api>=4.3.0` for account pagination.
+
 ## 1.7.5 - 2026-11-14
 
 - Preserve typed owner and person tags separately from the existing flattened author/tags fields.
